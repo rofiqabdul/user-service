@@ -19,17 +19,17 @@ type UserServcie struct {
 	repository repositories.IRepositoryRegistry
 }
 
-type Claims struct {
-	User *dto.UserResponse
-	jwt.RegisteredClaims
-}
-
 type IUserService interface {
 	Login(context.Context, *dto.LoginRequest) (*dto.LoignResponse, error)
 	Register(context.Context, *dto.RegisterRequest) (*dto.RegisterResponse, error)
-	Update(context.Context, *dto.UpdateRequest) (*dto.UserResponse, error)
+	Update(context.Context, *dto.UpdateRequest, string) (*dto.UserResponse, error)
 	GetUserLogin(context.Context) (*dto.UserResponse, error)
-	GetUserByUUID(context.Context) (*dto.LoginRequest, error)
+	GetUserByUUID(context.Context, string) (*dto.UserResponse, error)
+}
+
+type Claims struct {
+	User *dto.UserResponse
+	jwt.RegisteredClaims
 }
 
 func NewUserService(repository repositories.IRepositoryRegistry) IUserService {
@@ -114,7 +114,7 @@ func (u *UserServcie) Register(ctx context.Context, req *dto.RegisterRequest) (*
 		return nil, errConstant.ErrUsernameExists
 	}
 
-	if u.isEmailExist(ctx, req.Emial) {
+	if u.isEmailExist(ctx, req.Email) {
 		return nil, errConstant.ErrEmailExists
 	}
 
@@ -126,7 +126,7 @@ func (u *UserServcie) Register(ctx context.Context, req *dto.RegisterRequest) (*
 		Name:     req.Name,
 		Username: req.Username,
 		Password: string(hashedPassword),
-		Emial:    req.Emial,
+		Email:    req.Email,
 		RoleID:   constants.Customer,
 	})
 	if err != nil {
@@ -213,6 +213,41 @@ func (u *UserServcie) Update(ctx context.Context, request *dto.UpdateRequest, uu
 		Username:    userResult.Username,
 		PhoneNumber: userResult.PhoneNumber,
 		Email:       userResult.Email,
+	}
+
+	return &data, nil
+}
+
+func (u *UserServcie) GetUserLogin(ctx context.Context) (*dto.UserResponse, error) {
+	var (
+		userLogin = ctx.Value(constants.UserLogin).(*dto.UserResponse)
+		data      dto.UserResponse
+	)
+
+	data = dto.UserResponse{
+		UUID:        userLogin.UUID,
+		Name:        userLogin.Name,
+		Username:    userLogin.Username,
+		PhoneNumber: userLogin.PhoneNumber,
+		Email:       userLogin.Email,
+		Role:        userLogin.Role,
+	}
+
+	return &data, nil
+}
+
+func (u *UserServcie) GetUserByUUID(ctx context.Context, uuid string) (*dto.UserResponse, error) {
+	user, err := u.repository.GetUser().FindByUUID(ctx, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	data := dto.UserResponse{
+		UUID:        user.UUID,
+		Name:        user.Name,
+		Username:    user.Username,
+		PhoneNumber: user.PhoneNumber,
+		Email:       user.Email,
 	}
 
 	return &data, nil

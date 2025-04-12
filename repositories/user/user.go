@@ -35,7 +35,7 @@ func (r *UserRepository) Register(ctx context.Context, req *dto.RegisterRequest)
 		Username:    req.Username,
 		Password:    req.Password,
 		PhoneNumber: req.PhoneNumber,
-		Email:       req.Emial,
+		Email:       req.Email,
 		RoleID:      req.RoleID,
 	}
 
@@ -51,9 +51,9 @@ func (r *UserRepository) Update(ctx context.Context, req *dto.UpdateRequest, uui
 	user := models.User{
 		Name:        req.Name,
 		Username:    req.Username,
-		Password:    req.Password,
+		Password:    *req.Password,
 		PhoneNumber: req.PhoneNumber,
-		Email:       req.Emial,
+		Email:       req.Email,
 	}
 
 	err := r.db.WithContext(ctx).
