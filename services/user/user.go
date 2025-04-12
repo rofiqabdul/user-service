@@ -8,10 +8,10 @@ import (
 	"user-service/constants"
 	errConstant "user-service/constants/error"
 	"user-service/domain/dto"
+	"user-service/domain/models"
 	"user-service/repositories"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/hashicorp/consul/agent/hcp/bootstrap/constants"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -144,4 +144,76 @@ func (u *UserServcie) Register(ctx context.Context, req *dto.RegisterRequest) (*
 	}
 
 	return response, nil
+}
+
+func (u *UserServcie) Update(ctx context.Context, request *dto.UpdateRequest, uuid string) (*dto.UserResponse, error) {
+	var (
+		password                  string
+		checkUsername, checkEmail *models.User
+		hashedPassword            []byte
+		user, userResult          *models.User
+		err                       error
+		data                      dto.UserResponse
+	)
+
+	user, err = u.repository.GetUser().FindByUUID(ctx, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	isUsernameExist := u.isUsernameExist(ctx, request.Username)
+	if isUsernameExist && user.Username != request.Username {
+		checkUsername, err = u.repository.GetUser().FindByUsername(ctx, request.Username)
+		if err != nil {
+			return nil, err
+		}
+
+		if checkUsername != nil {
+			return nil, errConstant.ErrUsernameExists
+		}
+	}
+
+	isEmailExist := u.isEmailExist(ctx, request.Email)
+	if isEmailExist && user.Email != request.Email {
+		checkEmail, err = u.repository.GetUser().FindByEmail(ctx, request.Email)
+		if err != nil {
+			return nil, err
+		}
+
+		if checkEmail != nil {
+			return nil, errConstant.ErrEmailExists
+		}
+	}
+
+	if request.Password != nil {
+		if *request.Password != *request.ConfirmPassword {
+			return nil, errConstant.ErrPasswordDidNotMatch
+		}
+		hashedPassword, err = bcrypt.GenerateFromPassword([]byte(*request.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, err
+		}
+		password = string(hashedPassword)
+	}
+
+	userResult, err = u.repository.GetUser().Update(ctx, &dto.UpdateRequest{
+		Name:        request.Name,
+		Username:    request.Username,
+		Password:    &password,
+		Email:       request.Email,
+		PhoneNumber: request.PhoneNumber,
+	}, uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	data = dto.UserResponse{
+		UUID:        userResult.UUID,
+		Name:        userResult.Name,
+		Username:    userResult.Username,
+		PhoneNumber: userResult.PhoneNumber,
+		Email:       userResult.Email,
+	}
+
+	return &data, nil
 }
